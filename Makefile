@@ -1,2 +1,3 @@
 heroku:
-	go build -o lb-monitor github.com/travis-ci/lb-monitor
+	make -C $(GOPATH)/src/github.com/travis-ci/lb-monitor
+	cp $(GOPATH)/src/github.com/travis-ci/lb-monitor/lb-monitor .
