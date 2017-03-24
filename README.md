@@ -9,7 +9,7 @@ Also optionally reports counts to librato.
 ## Settings
 
 * `HOSTNAME` - the hostname to query, e.g. `travis-ci.org`.
-* `UPSTREAM_HOSTNAME` - a second hostname to check IPs against, e.g. `travis-ci.com.herokudns.com`.
+* `UPSTREAM_HOSTNAME` - a second hostname to check IPs against via DNS, e.g. `travis-ci.com.herokudns.com`.
 * `POLL_INTERVAL` - the number of seconds to wait in between polls. Defaults to `60` seconds.
 * `DIAL_TIMEOUT` - the number of seconds to wait for an answer until the TCP connection on port `443` times out. Defaults to `5` seconds.
 * `LIBRATO_USER` - (optional) the librato user, usually looks like an email address.
