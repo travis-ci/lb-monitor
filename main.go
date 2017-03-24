@@ -131,9 +131,17 @@ func main() {
 		numBorked := 0
 		for _, r := range res {
 			if !r.ok {
+				containedUpstream := ""
+				if upstreamHostname != "" {
+					if contains(upstreamAddrs, r.ip) {
+						containedUpstream = " (contained upstream)"
+					} else {
+						containedUpstream = " (not contained upstream)"
+					}
+				}
+
 				numBorked++
-				containedUpstream := contains(upstreamAddrs, r.ip)
-				log.Printf("borked ip %v with error %v (contained upstream %v)", r.ip, r.err, containedUpstream)
+				log.Printf("borked ip %v with error %v %v", r.ip, r.err, containedUpstream)
 			}
 		}
 
