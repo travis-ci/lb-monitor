@@ -1,1 +1,1 @@
-monitor: go run main.go
+monitor: lb-monitor

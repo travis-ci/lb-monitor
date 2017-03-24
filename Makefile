@@ -1,2 +1,2 @@
 heroku:
-	echo "test"
+	go build -o lb-monitor
