@@ -1,5 +1,2 @@
 heroku:
-	go version
-	go get -u github.com/FiloSottile/gvt
-	gvt restore
-	go build -o lb-monitor
+	go build -o lb-monitor github.com/travis-ci/lb-monitor
