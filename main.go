@@ -80,7 +80,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("running with DIAL_TIMEOUT of %v", pollInterval)
+		log.Printf("running with DIAL_TIMEOUT of %v", dialTimeout)
 	} else {
 		log.Printf("defaulting DIAL_TIMEOUT to %v", dialTimeout)
 	}
