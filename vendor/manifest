@@ -1,0 +1,13 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/rcrowley/go-librato",
+			"repository": "https://github.com/rcrowley/go-librato",
+			"vcs": "git",
+			"revision": "a17ea15e933f52d83d7d38ac16153fe33e34f1f0",
+			"branch": "master",
+			"notests": true
+		}
+	]
+}
