@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	raven "github.com/getsentry/raven-go"
 	"github.com/miekg/dns"
 	librato "github.com/rcrowley/go-librato"
 )
@@ -134,6 +135,11 @@ func metricsify(s string) string {
 	return strings.Replace(s, ".", "_", -1)
 }
 
+func processError(err error) {
+	log.Printf("error: %v", err)
+	raven.CaptureErrorAndWait(err, nil)
+}
+
 func runMonitor(hostname string) {
 	for {
 		log.Print("polling " + hostname)
@@ -141,17 +147,20 @@ func runMonitor(hostname string) {
 		res, err := checkHostHealth(hostname)
 
 		if err != nil {
-			log.Print(err)
+			processError(err)
+			continue
 		}
 
 		numBorked := 0
 		for _, r := range res {
+			if debug {
+				log.Printf("ok=%v err=%v ip=%v nss=%v", r.ok, r.err, r.ip, r.nss)
+			}
+
 			if !r.ok {
 				numBorked++
 				log.Printf("borked ip %v with error %v and nss %v", r.ip, r.err, r.nss)
-			}
-			if debug {
-				log.Printf("ok=%v err=%v ip=%v nss=%v", r.ok, r.err, r.ip, r.nss)
+				processError(r.err)
 			}
 		}
 
@@ -213,11 +222,27 @@ func main() {
 		log.Print("no librato config provided, to enable librato, please provide LIBRATO_USER and LIBRATO_TOKEN")
 	}
 
+	if os.Getenv("SENRTY_DSN") != "" {
+		err := raven.SetDSN(os.Getenv("SENRTY_DSN"))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// TODO: raven.SetRelease(VersionString)
+		if os.Getenv("SENRTY_ENVIRONMENT") != "" {
+			raven.SetEnvironment(os.Getenv("SENRTY_ENVIRONMENT"))
+		}
+	}
+
 	hostnames := strings.Split(os.Getenv("HOSTNAMES"), ",")
 	debug = os.Getenv("DEBUG") == "true"
 
 	for _, hostname := range hostnames {
-		go runMonitor(hostname)
+		go func(hostname string) {
+			raven.CapturePanicAndWait(func() {
+				runMonitor(hostname)
+			}, nil)
+		}(hostname)
 	}
 
 	exitSignal := make(chan os.Signal)
