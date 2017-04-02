@@ -4,8 +4,10 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/miekg/dns"
@@ -155,8 +157,8 @@ func runMonitor(hostname string) {
 }
 
 func main() {
-	if os.Getenv("HOSTNAME") == "" {
-		log.Fatal("please provide the HOSTNAME env variable")
+	if os.Getenv("HOSTNAMES") == "" {
+		log.Fatal("please provide the HOSTNAMES env variable")
 	}
 
 	var err error
@@ -203,6 +205,12 @@ func main() {
 		log.Print("no librato config provided, to enable librato, please provide LIBRATO_USER and LIBRATO_TOKEN")
 	}
 
-	hostname := os.Getenv("HOSTNAME")
-	runMonitor(hostname)
+	hostnames := strings.Split(os.Getenv("HOSTNAMES"), ",")
+	for _, hostname := range hostnames {
+		go runMonitor(hostname)
+	}
+
+	exitSignal := make(chan os.Signal)
+	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
+	<-exitSignal
 }
