@@ -48,15 +48,6 @@ func runMonitor(hostname string, dialTimeout int) ([]result, error) {
 	return res, nil
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
 func main() {
 	if os.Getenv("HOSTNAME") == "" {
 		log.Fatal("please provide the HOSTNAME env variable")
@@ -110,7 +101,6 @@ func main() {
 	}
 
 	hostname := os.Getenv("HOSTNAME")
-	upstreamHostname := os.Getenv("UPSTREAM_HOSTNAME")
 
 	for {
 		log.Print("polling " + hostname)
@@ -120,28 +110,11 @@ func main() {
 			log.Print(err)
 		}
 
-		var upstreamAddrs []string
-		if upstreamHostname != "" {
-			upstreamAddrs, err = net.LookupHost(upstreamHostname)
-			if err != nil {
-				log.Print(err)
-			}
-		}
-
 		numBorked := 0
 		for _, r := range res {
 			if !r.ok {
-				containedUpstream := ""
-				if upstreamHostname != "" {
-					if contains(upstreamAddrs, r.ip) {
-						containedUpstream = " (contained upstream)"
-					} else {
-						containedUpstream = " (not contained upstream)"
-					}
-				}
-
 				numBorked++
-				log.Printf("borked ip %v with error %v %v", r.ip, r.err, containedUpstream)
+				log.Printf("borked ip %v with error %v", r.ip, r.err)
 			}
 		}
 
