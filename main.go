@@ -8,40 +8,113 @@ import (
 	"strings"
 	"time"
 
+	"github.com/miekg/dns"
 	librato "github.com/rcrowley/go-librato"
 )
 
 type result struct {
 	ip  string
+	nss []string
 	ok  bool
 	err error
 }
 
+type ipSet struct {
+	m map[string]map[string]bool
+}
+
+func newIPSet() ipSet {
+	return ipSet{
+		m: make(map[string]map[string]bool),
+	}
+}
+
+func (ips *ipSet) addIP(ip string, ns string) {
+	if ips.m[ip] == nil {
+		ips.m[ip] = make(map[string]bool)
+	}
+	ips.m[ip][ns] = true
+}
+
+func (ips *ipSet) getIPToNSMap() map[string][]string {
+	out := make(map[string][]string)
+	for ip, nsm := range ips.m {
+		for ns, _ := range nsm {
+			out[ip] = append(out[ip], ns)
+		}
+	}
+	return out
+}
+
+func (ips *ipSet) getIPs() []string {
+	var out []string
+	for ip, _ := range ips.m {
+		out = append(out, ip)
+	}
+	return out
+}
+
+func resolveHostname(hostname string) (ipSet, error) {
+	ips := newIPSet()
+
+	c := dns.Client{}
+
+	m := dns.Msg{}
+	m.SetQuestion(hostname+".", dns.TypeNS)
+	r, _, err := c.Exchange(&m, "8.8.8.8:53")
+	if err != nil {
+		return ips, err
+	}
+
+	for _, ans := range r.Answer {
+		nsRecord := ans.(*dns.NS)
+		server := nsRecord.Ns
+
+		m2 := dns.Msg{}
+		m2.SetQuestion(hostname+".", dns.TypeA)
+		r2, _, err := c.Exchange(&m2, server+":53")
+		if err != nil {
+			return ips, err
+		}
+
+		for _, ans := range r2.Answer {
+			aRecord := ans.(*dns.A)
+			ips.addIP(aRecord.A.String(), server)
+		}
+	}
+
+	return ips, nil
+}
+
 func runMonitor(hostname string, dialTimeout int) ([]result, error) {
-	addrs, err := net.LookupHost(hostname)
+	ips, err := resolveHostname(hostname)
 	if err != nil {
 		return []result{}, err
 	}
 
 	out := make(chan result)
 
-	for _, addr := range addrs {
-		go func(addr string) {
-			_, err := net.DialTimeout(
+	for ip, nss := range ips.getIPToNSMap() {
+		go func(ip string, nss []string) {
+			conn, err := net.DialTimeout(
 				"tcp",
-				addr+":443",
+				ip+":443",
 				time.Duration(dialTimeout)*time.Second,
 			)
+			if conn != nil {
+				conn.Close()
+			}
 			out <- result{
-				ip:  addr,
+				ip:  ip,
+				nss: nss,
 				ok:  err == nil,
 				err: err,
 			}
-		}(addr)
+		}(ip, nss)
 	}
 
 	var res []result
-	for _ = range addrs {
+	for _ = range ips.getIPs() {
 		res = append(res, <-out)
 	}
 
@@ -114,7 +187,7 @@ func main() {
 		for _, r := range res {
 			if !r.ok {
 				numBorked++
-				log.Printf("borked ip %v with error %v", r.ip, r.err)
+				log.Printf("borked ip %v with error %v and nss %v", r.ip, r.err, r.nss)
 			}
 		}
 
