@@ -18,6 +18,7 @@ var (
 	m            librato.Metrics
 	pollInterval = 60
 	dialTimeout  = 5
+	debug        = false
 )
 
 type result struct {
@@ -149,6 +150,9 @@ func runMonitor(hostname string) {
 				numBorked++
 				log.Printf("borked ip %v with error %v and nss %v", r.ip, r.err, r.nss)
 			}
+			if debug {
+				log.Printf("ok=%v err=%v ip=%v nss=%v", r.ok, r.err, r.ip, r.nss)
+			}
 		}
 
 		if m != nil {
@@ -210,6 +214,8 @@ func main() {
 	}
 
 	hostnames := strings.Split(os.Getenv("HOSTNAMES"), ",")
+	debug = os.Getenv("DEBUG") == "true"
+
 	for _, hostname := range hostnames {
 		go runMonitor(hostname)
 	}
