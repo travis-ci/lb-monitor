@@ -12,6 +12,12 @@ import (
 	librato "github.com/rcrowley/go-librato"
 )
 
+var (
+	m            librato.Metrics
+	pollInterval = 60
+	dialTimeout  = 5
+)
+
 type result struct {
 	ip  string
 	nss []string
@@ -86,7 +92,7 @@ func resolveHostname(hostname string) (ipSet, error) {
 	return ips, nil
 }
 
-func runMonitor(hostname string, dialTimeout int) ([]result, error) {
+func checkHostHealth(hostname string) ([]result, error) {
 	ips, err := resolveHostname(hostname)
 	if err != nil {
 		return []result{}, err
@@ -121,12 +127,38 @@ func runMonitor(hostname string, dialTimeout int) ([]result, error) {
 	return res, nil
 }
 
+func runMonitor(hostname string) {
+	for {
+		log.Print("polling " + hostname)
+
+		res, err := checkHostHealth(hostname)
+
+		if err != nil {
+			log.Print(err)
+		}
+
+		numBorked := 0
+		for _, r := range res {
+			if !r.ok {
+				numBorked++
+				log.Printf("borked ip %v with error %v and nss %v", r.ip, r.err, r.nss)
+			}
+		}
+
+		if m != nil {
+			g := m.GetGauge("travis.lb-monitor." + strings.Replace(hostname, ".", "_", -1) + ".borked_ips")
+			g <- int64(numBorked)
+		}
+
+		time.Sleep(time.Duration(pollInterval) * time.Second)
+	}
+}
+
 func main() {
 	if os.Getenv("HOSTNAME") == "" {
 		log.Fatal("please provide the HOSTNAME env variable")
 	}
 
-	pollInterval := 60
 	var err error
 	if os.Getenv("POLL_INTERVAL") != "" {
 		pollInterval, err = strconv.Atoi(os.Getenv("POLL_INTERVAL"))
@@ -138,7 +170,6 @@ func main() {
 		log.Printf("defaulting POLL_INTERVAL to %v", pollInterval)
 	}
 
-	dialTimeout := 5
 	if os.Getenv("DIAL_TIMEOUT") != "" {
 		dialTimeout, err = strconv.Atoi(os.Getenv("DIAL_TIMEOUT"))
 		if err != nil {
@@ -149,7 +180,6 @@ func main() {
 		log.Printf("defaulting DIAL_TIMEOUT to %v", dialTimeout)
 	}
 
-	var m librato.Metrics
 	if os.Getenv("LIBRATO_USER") != "" && os.Getenv("LIBRATO_TOKEN") != "" {
 		source := os.Getenv("LIBRATO_SOURCE")
 		if source == "" {
@@ -174,28 +204,5 @@ func main() {
 	}
 
 	hostname := os.Getenv("HOSTNAME")
-
-	for {
-		log.Print("polling " + hostname)
-
-		res, err := runMonitor(hostname, dialTimeout)
-		if err != nil {
-			log.Print(err)
-		}
-
-		numBorked := 0
-		for _, r := range res {
-			if !r.ok {
-				numBorked++
-				log.Printf("borked ip %v with error %v and nss %v", r.ip, r.err, r.nss)
-			}
-		}
-
-		if m != nil {
-			g := m.GetGauge("travis.lb-monitor." + strings.Replace(hostname, ".", "_", -1) + ".borked_ips")
-			g <- int64(numBorked)
-		}
-
-		time.Sleep(time.Duration(pollInterval) * time.Second)
-	}
+	runMonitor(hostname)
 }
