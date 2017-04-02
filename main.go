@@ -16,10 +16,11 @@ import (
 )
 
 var (
-	m            librato.Metrics
-	pollInterval = 60
-	dialTimeout  = 5
-	debug        = false
+	m                 librato.Metrics
+	pollInterval      = 60
+	dialTimeout       = 5
+	upstreamDNSServer = "8.8.8.8:53"
+	debug             = false
 )
 
 type result struct {
@@ -71,7 +72,7 @@ func resolveHostname(hostname string) (ipSet, error) {
 
 	m := dns.Msg{}
 	m.SetQuestion(hostname+".", dns.TypeNS)
-	r, _, err := c.Exchange(&m, "8.8.8.8:53")
+	r, _, err := c.Exchange(&m, upstreamDNSServer)
 	if err != nil {
 		return ips, err
 	}
@@ -197,6 +198,13 @@ func main() {
 		log.Printf("running with DIAL_TIMEOUT of %v", dialTimeout)
 	} else {
 		log.Printf("defaulting DIAL_TIMEOUT to %v", dialTimeout)
+	}
+
+	if os.Getenv("UPSTREAM_DNS_SERVER") != "" {
+		upstreamDNSServer = os.Getenv("UPSTREAM_DNS_SERVER")
+		log.Printf("running with UPSTREAM_DNS_SERVER of %v", upstreamDNSServer)
+	} else {
+		log.Printf("defaulting UPSTREAM_DNS_SERVER to %v", upstreamDNSServer)
 	}
 
 	if os.Getenv("LIBRATO_USER") != "" && os.Getenv("LIBRATO_TOKEN") != "" {
