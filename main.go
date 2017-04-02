@@ -129,6 +129,10 @@ func checkHostHealth(hostname string) ([]result, error) {
 	return res, nil
 }
 
+func metricsify(s string) string {
+	return strings.Replace(s, ".", "_", -1)
+}
+
 func runMonitor(hostname string) {
 	for {
 		log.Print("polling " + hostname)
@@ -148,7 +152,7 @@ func runMonitor(hostname string) {
 		}
 
 		if m != nil {
-			g := m.GetGauge("travis.lb-monitor." + strings.Replace(hostname, ".", "_", -1) + ".borked_ips")
+			g := m.GetGauge("travis.lb-monitor." + metricsify(hostname))
 			g <- int64(numBorked)
 		}
 
