@@ -143,7 +143,9 @@ func processError(err error) {
 
 func runMonitor(hostname string) {
 	for {
-		log.Print("polling " + hostname)
+		if debug {
+			log.Print("polling " + hostname)
+		}
 
 		res, err := checkHostHealth(hostname)
 
